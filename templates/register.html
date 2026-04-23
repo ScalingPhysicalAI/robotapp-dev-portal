@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Register - Starforge Robotics Developer Portal{% endblock %}
+{% block nav_links %}<a href="/login">Login</a>{% endblock %}
+{% block content %}
+<div class="card" style="max-width:480px; margin:40px auto;">
+    <h2>Create Account</h2>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <form method="POST" action="/api/v1/auth/register">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" name="name" required>
+
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required>
+
+        <label for="org_name">Organization</label>
+        <input type="text" id="org_name" name="org_name" required>
+
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required minlength="8">
+
+        <label style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
+            <input type="checkbox" name="tos_accepted" required>
+            I accept the Terms of Service
+        </label>
+
+        <button type="submit" class="btn btn-primary" style="width:100%;">Register</button>
+    </form>
+    <p style="margin-top:12px; text-align:center; font-size:14px;">
+        Already have an account? <a href="/login">Login</a>
+    </p>
+</div>
+{% endblock %}

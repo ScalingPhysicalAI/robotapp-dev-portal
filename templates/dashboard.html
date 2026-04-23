@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Starforge Robotics Developer Portal{% endblock %}
+{% block nav_links %}
+    <span>{{ developer.name }} ({{ developer.role }})</span>
+    <a href="/logout">Logout</a>
+{% endblock %}
+{% block content %}
+
+<h1>Dashboard</h1>
+
+<div class="card">
+    <h2>Generate Key Pair &amp; Get Certificate</h2>
+    <p style="margin-bottom:12px; font-size:14px; color:#666;">
+        Generate an ECDSA P-256 key pair in your browser. Your private key never leaves your device.
+    </p>
+
+    <button type="button" id="generateBtn" class="btn btn-primary" onclick="generateKeyPair()">
+        Generate Key Pair
+    </button>
+
+    <div id="keyPairResult" style="display:none; margin-top:16px;">
+        <div style="background:#fef3c7; border:1px solid #f59e0b; border-radius:4px; padding:12px; margin-bottom:12px;">
+            <strong style="color:#92400e;">Private Key — copy and save this now. It will not be shown again.</strong>
+        </div>
+        <label for="private_key_display">Private Key (PEM)</label>
+        <textarea id="private_key_display" rows="6" readonly
+                  style="background:#fff7ed; border-color:#f59e0b; font-size:12px;"></textarea>
+        <button type="button" class="btn btn-sm" style="margin-bottom:16px; background:#f59e0b; color:white;"
+                onclick="copyPrivateKey()">
+            Copy Private Key
+        </button>
+        <span id="copyConfirm" style="display:none; color:#166534; font-size:13px; margin-left:8px;">Copied!</span>
+
+        <form method="POST" action="/api/v1/developers/keys">
+            <label for="public_key">Public Key (PEM) — this will be sent to the server</label>
+            <textarea id="public_key" name="public_key" rows="5" readonly
+                      style="background:#f0fdf4; border-color:#22c55e; font-size:12px;"></textarea>
+            <button type="submit" class="btn btn-primary">Submit Public Key &amp; Get Certificate</button>
+        </form>
+    </div>
+</div>
+
+<script>
+async function generateKeyPair() {
+    const keyPair = await crypto.subtle.generateKey(
+        { name: "ECDSA", namedCurve: "P-256" },
+        true,
+        ["sign", "verify"]
+    );
+
+    const privateDer = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+    const publicDer = await crypto.subtle.exportKey("spki", keyPair.publicKey);
+
+    const toPem = (der, label) => {
+        const b64 = btoa(String.fromCharCode(...new Uint8Array(der)));
+        const lines = b64.match(/.{1,64}/g).join("\n");
+        return `-----BEGIN ${label}-----\n${lines}\n-----END ${label}-----`;
+    };
+
+    document.getElementById("private_key_display").value = toPem(privateDer, "PRIVATE KEY");
+    document.getElementById("public_key").value = toPem(publicDer, "PUBLIC KEY");
+    document.getElementById("keyPairResult").style.display = "block";
+    document.getElementById("generateBtn").textContent = "Regenerate Key Pair";
+}
+
+function copyPrivateKey() {
+    const el = document.getElementById("private_key_display");
+    navigator.clipboard.writeText(el.value).then(() => {
+        const confirm = document.getElementById("copyConfirm");
+        confirm.style.display = "inline";
+        setTimeout(() => confirm.style.display = "none", 2000);
+    });
+}
+</script>
+
+<div class="card">
+    <h2>My Certificates</h2>
+    {% if certificates %}
+    <table>
+        <thead>
+            <tr>
+                <th>Serial</th>
+                <th>Issued</th>
+                <th>Expires</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cert in certificates %}
+            <tr>
+                <td style="font-family:monospace; font-size:12px;">{{ cert.serial_number[:16] }}...</td>
+                <td>{{ cert.issued_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ cert.expires_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    {% if cert.is_revoked %}
+                        <span class="badge badge-red">Revoked</span>
+                    {% elif cert.expires_at < now %}
+                        <span class="badge badge-yellow">Expired</span>
+                    {% else %}
+                        <span class="badge badge-green">Active</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if not cert.is_revoked %}
+                    <form method="POST" action="/revoke/{{ cert.id }}" style="display:inline;"
+                          onsubmit="return confirm('Revoke this certificate?')">
+                        <button type="submit" class="btn btn-danger btn-sm">Revoke</button>
+                    </form>
+                    {% endif %}
+                    <details style="display:inline-block; margin-left:4px;">
+                        <summary style="cursor:pointer; font-size:12px; color:#2563eb;">View PEM</summary>
+                        <pre style="margin-top:8px; padding:8px; background:#f5f5f5; font-size:11px; max-width:500px; overflow-x:auto;">{{ cert.certificate_pem }}</pre>
+                    </details>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:#666;">No certificates yet. Upload a public key above to get started.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Dev CA Certificate</h2>
+    <p style="margin-bottom:8px; font-size:14px; color:#666;">The CA certificate used to sign developer certificates:</p>
+    <pre style="padding:8px; background:#f5f5f5; font-size:11px; overflow-x:auto;">{{ ca_cert_pem }}</pre>
+</div>
+
+{% endblock %}
