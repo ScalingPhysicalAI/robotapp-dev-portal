@@ -36,6 +36,7 @@ class Certificate(db.Model):
     serial_number = db.Column(db.String(64), unique=True, nullable=False)
     developer_id = db.Column(db.Integer, db.ForeignKey("developers.id"), nullable=False)
     public_key_pem = db.Column(db.Text, nullable=False)
+    key_source = db.Column(db.String(20), nullable=False, default="uploaded")
     certificate_pem = db.Column(db.Text, nullable=False)
     issued_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     expires_at = db.Column(db.DateTime, nullable=False)

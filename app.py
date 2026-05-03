@@ -11,7 +11,7 @@ from auth import (
     decode_token,
     login_required,
 )
-from cert_service import sign_developer_cert, generate_crl, get_ca_cert_pem
+from cert_service import sign_developer_cert, generate_crl, get_ca_cert_pem, get_ca_cert_info
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///developer_portal.db"
@@ -181,6 +181,10 @@ def api_upload_key():
         if request.is_json:
             return jsonify({"error": error}), 400
         return redirect(url_for("dashboard"))
+    
+    key_source = data.get("key_source", "uploaded")
+    if key_source not in ("generated", "uploaded"):
+        key_source = "uploaded"
 
     dev = db.session.get(Developer, g.developer_id)
 
@@ -201,6 +205,7 @@ def api_upload_key():
         serial_number=serial_hex,
         developer_id=dev.id,
         public_key_pem=public_key_pem,
+        key_source=key_source,
         certificate_pem=cert_pem,
         expires_at=expires_at,
     )
@@ -208,10 +213,13 @@ def api_upload_key():
     db.session.commit()
 
     if request.is_json:
+        ca_info = get_ca_cert_info()
         return jsonify({
             "certificate_id": cert.id,
             "serial_number": cert.serial_number,
             "certificate_pem": cert.certificate_pem,
+            "ca_certificate_pem": ca_info["certificate_pem"],
+            "fingerprint_sha256": ca_info["fingerprint_sha256"],
             "issued_at": cert.issued_at.isoformat(),
             "expires_at": cert.expires_at.isoformat(),
         }), 201
@@ -297,6 +305,15 @@ def api_crl():
     response.headers["Content-Type"] = "application/pkix-crl"
     response.headers["Content-Disposition"] = "attachment; filename=developer.crl"
     return response
+
+
+# ------------------------------------------------------------------
+# API: CA certificate (public)
+# ------------------------------------------------------------------
+
+@app.route("/api/v1/ca/certificate", methods=["GET"])
+def api_ca_certificate():
+    return jsonify(get_ca_cert_info())
 
 
 # ------------------------------------------------------------------

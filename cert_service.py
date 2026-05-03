@@ -85,7 +85,13 @@ def load_ca():
 
     return ca_key, ca_cert
 
+
+MAX_PEM_SIZE = 1024
+
 def sign_developer_cert(public_key_pem, developer_name, org_name, developer_id):
+    if len(public_key_pem.encode()) > MAX_PEM_SIZE:
+        raise ValueError("Public key PEM exceeds maximum allowed size of 1 KiB")
+
     dev_pubkey = serialization.load_pem_public_key(public_key_pem.encode())
 
     if not isinstance(dev_pubkey, ec.EllipticCurvePublicKey):
@@ -128,6 +134,12 @@ def sign_developer_cert(public_key_pem, developer_name, org_name, developer_id):
                 decipher_only=False,
             ),
             critical=True,
+        )
+        .add_extension(
+            x509.ExtendedKeyUsage([
+                x509.oid.ExtendedKeyUsageOID.CODE_SIGNING,
+            ]),
+            critical=False
         )
         .add_extension(
             x509.UnrecognizedExtension(DEVELOPER_ROLE_OID, b"developer"),
@@ -182,3 +194,17 @@ def generate_crl(revoked_certs):
 def get_ca_cert_pem():
     with open(CA_CERT_PATH, "r") as f:
         return f.read()
+    
+
+def get_ca_cert_info():
+    _, ca_cert = load_ca()
+    pem = ca_cert.public_bytes(serialization.Encoding.PEM).decode()
+    fingerprint = ca_cert.fingerprint(hashes.SHA256()).hex(":")
+    subject = ca_cert.subject.rfc4514_string()
+    expires_at = ca_cert.not_valid_after_utc.isoformat()
+    return {
+        "certificate_pem": pem,
+        "subject": subject,
+        "fingerprint_sha256": fingerprint,
+        "expires_at": expires_at,
+    }

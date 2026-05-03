@@ -6,41 +6,142 @@
 {% endblock %}
 {% block content %}
 
+<style>
+.tab-bar {
+    display: flex;
+    gap: 0;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.tab-btn {
+    padding: 8px 16px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.tab-btn.active {
+    color: #2563eb;
+    border-bottom-color: #2563eb;
+    font-weight: 600;
+}
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+}
+</style>
+
 <h1>Dashboard</h1>
 
 <div class="card">
-    <h2>Generate Key Pair &amp; Get Certificate</h2>
-    <p style="margin-bottom:12px; font-size:14px; color:#666;">
-        Generate an ECDSA P-256 key pair in your browser. Your private key never leaves your device.
-    </p>
+    <h2>Key Management</h2>
 
-    <button type="button" id="generateBtn" class="btn btn-primary" onclick="generateKeyPair()">
-        Generate Key Pair
-    </button>
-
-    <div id="keyPairResult" style="display:none; margin-top:16px;">
-        <div style="background:#fef3c7; border:1px solid #f59e0b; border-radius:4px; padding:12px; margin-bottom:12px;">
-            <strong style="color:#92400e;">Private Key — copy and save this now. It will not be shown again.</strong>
-        </div>
-        <label for="private_key_display">Private Key (PEM)</label>
-        <textarea id="private_key_display" rows="6" readonly
-                  style="background:#fff7ed; border-color:#f59e0b; font-size:12px;"></textarea>
-        <button type="button" class="btn btn-sm" style="margin-bottom:16px; background:#f59e0b; color:white;"
-                onclick="copyPrivateKey()">
-            Copy Private Key
+    <div class="tab-bar">
+        <button type="button" class="tab-btn active" data-tab="generate" onclick="switchTab('generate')">
+            Generate on Portal
         </button>
-        <span id="copyConfirm" style="display:none; color:#166534; font-size:13px; margin-left:8px;">Copied!</span>
+        <button type="button" class="tab-btn" data-tab="upload" onclick="switchTab('upload')">
+            Upload My Own Key
+        </button>
+    </div>
+
+    <div id="panel-generate" class="tab-panel active">
+        <p style="margin-bottom:12px; font-size:14px; color:#666;">
+            Generate an ECDSA P-256 key pair in your browser. Your private key never leaves your device.
+        </p>
+
+        <button type="button" id="generateBtn" class="btn btn-primary" onclick="generateKeyPair()">
+            Generate Key Pair
+        </button>
+
+        <div id="keyPairResult" style="display:none; margin-top:16px;">
+            <div style="background:#fef3c7; border:1px solid #f59e0b; border-radius:4px; padding:12px; margin-bottom:12px;">
+                <strong style="color:#92400e;">
+                    Private Key — copy or download this now. It will not be shown again.
+                </strong>
+            </div>
+
+            <label for="private_key_display">Private Key (PEM)</label>
+            <textarea id="private_key_display" rows="6" readonly
+                style="background:#fff7ed; border-color:#f59e0b; font-size:12px;"></textarea>
+
+            <div style="margin-bottom:16px;">
+                <button type="button" class="btn btn-sm"
+                    style="background:#f59e0b; color:white;"
+                    onclick="copyPrivateKey()">
+                    Copy Private Key
+                </button>
+
+                <span id="copyConfirm"
+                    style="display:none; color:#166534; font-size:13px; margin-left:8px;">
+                    Copied!
+                </span>
+
+                <button type="button" class="btn btn-sm"
+                    style="background:#2563eb; color:white; margin-left:4px;"
+                    onclick="downloadPrivateKey()">
+                    Download Private Key
+                </button>
+            </div>
+
+            <form method="POST" action="/api/v1/developers/keys">
+                <input type="hidden" name="key_source" value="generated">
+
+                <label for="public_key">
+                    Public Key (PEM) — this will be sent to the server
+                </label>
+
+                <textarea id="public_key" name="public_key" rows="5" readonly
+                    style="background:#f0fdf4; border-color:#22c55e; font-size:12px;"></textarea>
+
+                <button type="submit" class="btn btn-primary">
+                    Submit Public Key &amp; Get Certificate
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="panel-upload" class="tab-panel">
+        <p style="margin-bottom:12px; font-size:14px; color:#666;">
+            Paste your PEM-encoded ECDSA P-256 public key below (e.g. from
+            <code>robotapp-cli keygen</code>). Your private key stays on your device.
+        </p>
 
         <form method="POST" action="/api/v1/developers/keys">
-            <label for="public_key">Public Key (PEM) — this will be sent to the server</label>
-            <textarea id="public_key" name="public_key" rows="5" readonly
-                      style="background:#f0fdf4; border-color:#22c55e; font-size:12px;"></textarea>
-            <button type="submit" class="btn btn-primary">Submit Public Key &amp; Get Certificate</button>
+            <input type="hidden" name="key_source" value="uploaded">
+
+            <label for="upload_public_key">Public Key (PEM)</label>
+
+            <textarea id="upload_public_key" name="public_key" rows="8"
+                placeholder="-----BEGIN PUBLIC KEY-----&#10;MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...&#10;-----END PUBLIC KEY-----"
+                style="font-size:12px;"></textarea>
+
+            <button type="submit" class="btn btn-primary">
+                Upload Public Key &amp; Get Certificate
+            </button>
         </form>
     </div>
 </div>
 
 <script>
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    document.getElementById(`panel-${tabName}`).classList.add('active');
+}
+
+
 async function generateKeyPair() {
     const keyPair = await crypto.subtle.generateKey(
         { name: "ECDSA", namedCurve: "P-256" },
@@ -71,6 +172,33 @@ function copyPrivateKey() {
         setTimeout(() => confirm.style.display = "none", 2000);
     });
 }
+
+function downloadPrivateKey() {
+    const pem = document.getElementById("private_key_display").value;
+    const blob = new Blob([pem], { type: "application/x-pem-file" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "developer_private_key.pem";
+    a.click();
+
+    URL.revokeObjectURL(url);
+}
+
+function downloadCACert() {
+    const pem = {{ ca_cert_pem | tojson }};
+    const blob = new Blob([pem], { type: "application/x-pem-file" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "starforge_dev_ca.pem";
+    a.click();
+
+    URL.revokeObjectURL(url);
+}
+
 </script>
 
 <div class="card">
@@ -82,6 +210,7 @@ function copyPrivateKey() {
                 <th>Serial</th>
                 <th>Issued</th>
                 <th>Expires</th>
+                <th>Source</th>
                 <th>Status</th>
                 <th>Actions</th>
             </tr>
@@ -92,6 +221,11 @@ function copyPrivateKey() {
                 <td style="font-family:monospace; font-size:12px;">{{ cert.serial_number[:16] }}...</td>
                 <td>{{ cert.issued_at.strftime('%Y-%m-%d %H:%M') }}</td>
                 <td>{{ cert.expires_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    <span class="badge {% if cert.key_source == 'generated' %}badge-yellow{% else %}badge-green{% endif %}">
+                        {{ cert.key_source|default('uploaded') }}
+                    </span>
+                </td>
                 <td>
                     {% if cert.is_revoked %}
                         <span class="badge badge-red">Revoked</span>
@@ -118,14 +252,32 @@ function copyPrivateKey() {
         </tbody>
     </table>
     {% else %}
-    <p style="color:#666;">No certificates yet. Upload a public key above to get started.</p>
+    <p style="color:#666;">No certificates yet. Generate a key pair or upload a public key above to get started.</p>
     {% endif %}
 </div>
 
-<div class="card">
+<div class="card" style="border-left: 4px solid #2563eb;">
     <h2>Dev CA Certificate</h2>
-    <p style="margin-bottom:8px; font-size:14px; color:#666;">The CA certificate used to sign developer certificates:</p>
-    <pre style="padding:8px; background:#f5f5f5; font-size:11px; overflow-x:auto;">{{ ca_cert_pem }}</pre>
+
+    <p style="margin-bottom:12px; font-size:14px; color:#666;">
+        The CA certificate used to sign all developer certificates. Install this to verify developer-signed artifacts
+        (<code>robotapp-cli install-cert --ca &lt;file&gt;</code>).
+    </p>
+
+    <button type="button" class="btn btn-primary btn-sm"
+        onclick="downloadCACert()"
+        style="margin-bottom:12px;">
+        Download CA Certificate
+    </button>
+
+    <details>
+        <summary style="cursor:pointer; font-size:13px; color:#2563eb;">
+            View PEM
+        </summary>
+        <pre style="margin-top:8px; padding:8px; background:#f5f5f5; font-size:11px; overflow-x:auto;">
+{{ ca_cert_pem }}
+        </pre>
+    </details>
 </div>
 
 {% endblock %}
