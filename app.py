@@ -14,7 +14,22 @@ from auth import (
 from cert_service import sign_developer_cert, generate_crl, get_ca_cert_pem, get_ca_cert_info
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///developer_portal.db"
+
+
+def _build_db_uri() -> str:
+    if os.environ.get("DATABASE_URL"):
+        return os.environ["DATABASE_URL"]
+    db_host = os.environ.get("DB_HOST")
+    if db_host:
+        user = os.environ.get("DB_USER", "")
+        password = os.environ.get("DB_PASSWORD", "")
+        name = os.environ.get("DB_NAME", "")
+        port = os.environ.get("DB_PORT", "5432")
+        return f"postgresql+psycopg2://{user}:{password}@{db_host}:{port}/{name}"
+    return "sqlite:///developer_portal.db"
+
+
+app.config["SQLALCHEMY_DATABASE_URI"] = _build_db_uri()
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
@@ -22,6 +37,11 @@ db.init_app(app)
 # ------------------------------------------------------------------
 # HTML routes
 # ------------------------------------------------------------------
+
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok"})
+
 
 @app.route("/")
 def index():
